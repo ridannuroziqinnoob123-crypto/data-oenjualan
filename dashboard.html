@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📊 Dashboard Data Sederhana</title>
+  <!-- Chart.js dari CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #5a4fcf;
+      font-size: 1.8rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+    .card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .card h3 {
+      margin-bottom: 12px;
+      color: #4a4a6a;
+      font-size: 1.1rem;
+    }
+    canvas {
+      max-height: 300px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 12px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: #667eea;
+      color: white;
+      font-weight: 600;
+    }
+    tr:hover { background: #f1f1ff; }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 20px 0;
+      justify-content: center;
+    }
+    .stat-box {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 10px;
+      min-width: 150px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    .stat-box .value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    .stat-box .label {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    .btn {
+      display: block;
+      margin: 20px auto 10px;
+      padding: 12px 30px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      background: #5a4fcf;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Dashboard Penjualan Produk</h1>
+
+    <!-- 📈 Ringkasan Statistik -->
+    <div class="stats" id="statsBox"></div>
+
+    <!-- 📊 Grafik -->
+    <div class="grid">
+      <div class="card">
+        <h3>🥧 Distribusi Kategori</h3>
+        <canvas id="pieChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>📊 Perbandingan Bulanan</h3>
+        <canvas id="barChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>📈 Tren Total Penjualan</h3>
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <!-- 📋 Tabel Data -->
+    <h3 style="text-align:center; margin:20px 0 10px; color:#4a4a6a;">📋 Data Lengkap</h3>
+    <table id="dataTable">
+      <thead>
+        <tr><th>Bulan</th><th>Elektronik</th><th>Fashion</th><th>Makanan</th><th>Otomotif</th><th>Total</th></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <!-- 📥 Tombol Export -->
+    <button class="btn" onclick="exportCSV()">📥 Export ke CSV</button>
+  </div>
+
+  <script>
+    // 🔹 DATA (EDIT DI SINI - format JSON sederhana)
+    const data = [
+      { bulan: "Jan", elektronik: 120, fashion: 80, makanan: 200, otomotif: 50 },
+      { bulan: "Feb", elektronik: 150, fashion: 90, makanan: 210, otomotif: 60 },
+      { bulan: "Mar", elektronik: 180, fashion: 100, makanan: 230, otomotif: 70 },
+      { bulan: "Apr", elektronik: 200, fashion: 110, makanan: 250, otomotif: 80 },
+      { bulan: "Mei", elektronik: 190, fashion: 130, makanan: 240, otomotif: 90 },
+      { bulan: "Jun", elektronik: 210, fashion: 140, makanan: 260, otomotif: 100 }
+    ];
+
+    // 🔹 Hitung total per kategori (untuk Pie Chart)
+    const kategori = {
+      Elektronik: data.reduce((s, r) => s + r.elektronik, 0),
+      Fashion: data.reduce((s, r) => s + r.fashion, 0),
+      Makanan: data.reduce((s, r) => s + r.makanan, 0),
+      Otomotif: data.reduce((s, r) => s + r.otomotif, 0)
+    };
+
+    // 🔹 Hitung total per bulan & statistik
+    const totals = data.map(r => {
+      r.total = r.elektronik + r.fashion + r.makanan + r.otomotif;
+      return r;
+    });
+    const grandTotal = totals.reduce((s, r) => s + r.total, 0);
+    const avgBulanan = (grandTotal / totals.length).toFixed(0);
+    const maxBulan = totals.reduce((max, r) => r.total > max.total ? r : max);
+    const minBulan = totals.reduce((min, r) => r.total < min.total ? r : min);
+
+    // 🔹 Tampilkan Statistik (KPI Cards)
+    document.getElementById('statsBox').innerHTML = `
+      <div class="stat-box"><div class="value">${grandTotal.toLocaleString()}</div><div class="label">Total Penjualan</div></div>
+      <div class="stat-box"><div class="value">${avgBulanan}</div><div class="label">Rata-rata/Bulan</div></div>
+      <div class="stat-box"><div class="value">${maxBulan.bulan}</div><div class="label">Bulan Tertinggi</div></div>
+      <div class="stat-box"><div class="value">${minBulan.bulan}</div><div class="label">Bulan Terendah</div></div>
+    `;
+
+    // 🔹 Isi Tabel Data
+    const tbody = document.getElementById('tableBody');
+    totals.forEach(r => {
+      tbody.innerHTML += `<tr>
+        <td><strong>${r.bulan}</strong></td>
+        <td>${r.elektronik}</td>
+        <td>${r.fashion}</td>
+        <td>${r.makanan}</td>
+        <td>${r.otomotif}</td>
+        <td><strong>${r.total}</strong></td>
+      </tr>`;
+    });
+
+    // 🔹 🥧 Pie Chart
+    new Chart(document.getElementById('pieChart'), {
+      type: 'pie',
+      data: {
+        labels: Object.keys(kategori),
+        datasets: [{
+          data: Object.values(kategori),
+          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed.toLocaleString()} unit` } }
+        }
+      }
+    });
+
+    // 🔹 📊 Bar Chart
+    new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels: data.map(r => r.bulan),
+        datasets: [
+          { label: 'Elektronik', data: data.map(r => r.elektronik), backgroundColor: '#FF6384' },
+          { label: 'Fashion', data: data.map(r => r.fashion), backgroundColor: '#36A2EB' },
+          { label: 'Makanan', data: data.map(r => r.makanan), backgroundColor: '#FFCE56' },
+          { label: 'Otomotif', data: data.map(r => r.otomotif), backgroundColor: '#4BC0C0' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+
+    // 🔹 📈 Line Chart
+    new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: {
+        labels: data.map(r => r.bulan),
+        datasets: [{
+          label: 'Total Penjualan',
+          data: totals.map(r => r.total),
+          borderColor: '#764ba2',
+          backgroundColor: 'rgba(118, 75, 162, 0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    // 🔹 Export ke CSV
+    function exportCSV() {
+      let csv = "Bulan,Elektronik,Fashion,Makanan,Otomotif,Total\n";
+      totals.forEach(r => {
+        csv += `${r.bulan},${r.elektronik},${r.fashion},${r.makanan},${r.otomotif},${r.total}\n`;
+      });
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "data_penjualan.csv";
+      link.click();
+    }
+  </script>
+</body>
+</html>
